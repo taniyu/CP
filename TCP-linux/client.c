@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     }
     if (rflag == 0) {
       gettimeofday(&t1, NULL);
-      sprintf(s_buff, "%s:%0.f.%0.f\n", s_buff, (double)t1.tv_sec, (double)t2.tv_usec);
+      sprintf(s_buff, "%s:%0.f.%0.f\n", s_buff, (double)t1.tv_sec, (double)t1.tv_usec);
       if (send(sockfd, s_buff, BUFF, 0) != -1) {
         rflag = 1;
       }
