@@ -61,19 +61,7 @@ int main(int argc, char *argv[])
   fcntl(sockfd, F_SETFL, O_NONBLOCK);
   rflag = 1; wflag = 0;
   while (1) {
-    /* if (rflag == 1) { */
-    /*   /\* if (read(fileno(stdin), &sch, 1) == 1) { *\/ */
-    /*   if (fgets(s_buff, BUFF, stdin)) { */
-    /*     /\* if (sch == '\001') { *\/ */
-    /*     if (s_buff[0] == '\001') { */
-    /*       endflag = 0; */
-    /*       break;	/\* ^A *\/ */
-    /*     } */
-    /*     rflag = 0; */
-    /*   } */
-    /* } */
     if (rflag == 0) {
-      /* if ((iobytes = write(sockfd, &sch, 1)) == 1) { */
       if ((iobytes = send(sockfd, s_buff, BUFF, 0)) != -1) {
         rflag = 1;
       } else if (iobytes == -1) {
@@ -85,13 +73,11 @@ int main(int argc, char *argv[])
       wflag = 0;
     }
     if (wflag == 0) {
-      /* if ((iobytes = read(sockfd, &rch, 1)) == 1) { */
       if ((iobytes = recv(sockfd, r_buff, BUFF, 0)) != -1) {
         gettimeofday(&ts, NULL);
         sscanf(r_buff, "%[^':']", tmp1);
         sprintf(s_buff, "%s:a:%.0f.%.0f", tmp1, (double)ts.tv_sec, (double)ts.tv_usec);
         puts(s_buff);
-        /* if (rch == '\001') { */
         if (r_buff[0] == '\001') {
           endflag = 1;
           break;	/* ^A */
@@ -105,15 +91,8 @@ int main(int argc, char *argv[])
         }
       }
     }
-    /* if (wflag == 1) { */
-    /*   /\* if (write(fileno(stdout), &rch, 1) == 1) { *\/ */
-    /*   if (fprintf(stdout, "%s", r_buff) != -1) { */
-    /*     wflag = 0; */
-    /*   } */
-    /* } */
   }
   if (endflag == 0) {
-    /* while (write(sockfd, &sch, 1) != 1); */
     send(sockfd, s_buff, BUFF, 0);
   }
   close(sockfd);

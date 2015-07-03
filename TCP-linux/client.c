@@ -67,10 +67,8 @@ int main(int argc, char *argv[])
   rflag = 1; wflag = 0;
   while (1) {
     if (rflag == 1) {
-      /* if (read(fileno(stdin), &sch, rw_size) == rw_size) { */
       if (fgets(s_buff, BUFF, stdin)) {
         strtok(s_buff, "\n\0");
-        /* if (sch == '\001') { */
         if (s_buff[0] == '\001') {
           endflag = 0;
           break;	/* ^A */
@@ -79,7 +77,6 @@ int main(int argc, char *argv[])
       }
     }
     if (rflag == 0) {
-      /* if (write(sockfd, &sch, rw_size) == rw_size) { */
       gettimeofday(&t1, NULL);
       sprintf(s_buff, "%s:%0.f.%0.f\n", s_buff, (double)t1.tv_sec, (double)t2.tv_usec);
       if (send(sockfd, s_buff, BUFF, 0) != -1) {
@@ -87,9 +84,7 @@ int main(int argc, char *argv[])
       }
     }
     if (wflag == 0) {
-      /* if (read(sockfd, &rch, rw_size) == rw_size) { */
       if (recv(sockfd, r_buff, BUFF, 0) != -1) {
-        /* if (rch == '\001') { */
         if (r_buff[0] == '\001') {
           endflag = 1;
           break;	/* ^A */
@@ -99,12 +94,10 @@ int main(int argc, char *argv[])
         tmp1 = strchr(tmp1, ':'); tmp1++;
         tmp1 = strchr(tmp1, ':'); tmp1++;
         sscanf(tmp1, "%lf", &r_sec);
-        /* printf("%.0f %.0f\n", r_sec, r_usec); */
         wflag = 1;
       }
     }
     if (wflag == 1) {
-      /* if (write(fileno(stdout), &rch, rw_size) == rw_size) { */
       diff = (t1.tv_sec + t1.tv_usec / 1000000.0) + (t2.tv_sec + t2.tv_usec/ 1000000.0) - r_sec;
       strtok(r_buff, "\n\0");
       strtok(s_buff, "\n\0");
@@ -115,7 +108,6 @@ int main(int argc, char *argv[])
     }
   }
   if (endflag == 0) {
-    /* while (write(sockfd, &sch, rw_size) != rw_size); */
     send(sockfd, s_buff, BUFF, 0);
   }
   write(fileno(stdout), "\nEnd.\n", strlen("\nEnd.\n")+1);
