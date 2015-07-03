@@ -77,7 +77,6 @@ int main(int argc, char *argv[])
         gettimeofday(&ts, NULL);
         sscanf(r_buff, "%[^':']", tmp1);
         sprintf(s_buff, "%s:a:%.0f.%.0f", tmp1, (double)ts.tv_sec, (double)ts.tv_usec);
-        puts(s_buff);
         if (r_buff[0] == '\001') {
           endflag = 1;
           break;	/* ^A */

@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
       diff = (t1.tv_sec + t1.tv_usec / 1000000.0) + (t2.tv_sec + t2.tv_usec/ 1000000.0) - r_sec;
       strtok(r_buff, "\n\0");
       strtok(s_buff, "\n\0");
-      sprintf(r_buff2, "%s, %s, %.0f.%.0f, %f\n",s_buff, r_buff, (double)t2.tv_sec, (double)t2.tv_usec, diff);
+      sprintf(r_buff2, "%s\n%s\n%.0f.%.0f\n%f\n",s_buff, r_buff, (double)t2.tv_sec, (double)t2.tv_usec, diff);
       if (fprintf(stdout, "%s", r_buff2)) {
         wflag = 0;
       }
