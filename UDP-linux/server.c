@@ -13,12 +13,41 @@
 #define tvaltof(ts, tus) ((ts)+(double)(tus)/1000000)
 
 #define	BLKSIZE	2048
-unsigned char buf[BLKSIZE];
+/* unsigned char buf[BLKSIZE]; */
+char buf[BLKSIZE];
 
 void err_msg(char *msg)
 {
   perror(msg);
   exit(1);
+}
+
+/* ファイルに指定されたログデータを書き込む */
+int output_log(char *addr, char *str)
+{
+  FILE *fp;
+  /* ファイルオープン失敗 */
+  if ( (fp = fopen("access.log", "a")) == NULL ) {
+    return -1;
+  }
+  fprintf(fp, "%s %s\n", addr, str);
+  fclose(fp);
+  return 1;
+}
+
+/* :以降の文字をaに置換する */
+void replace_str(char *str)
+{
+  int flag = 0;
+  while ( *str != '\0' ) {
+    if ( flag == 1 ) { *str = '\0'; }
+    if ( *str == ':' ) {
+      flag = 1;
+      str++;
+      *str = 'a';
+    }
+    str++;
+  }
 }
 
 int main(int argc, char *argv[])
@@ -28,16 +57,12 @@ int main(int argc, char *argv[])
   struct sockaddr_in serv_addr, cli_addr;
   int cli_len = sizeof(cli_addr);
   int serv_len = sizeof(serv_addr);
-  int seqnum,n;
-  long sec,usec;
-  struct timeval t;
-  struct timezone z;
+  int n;
+  struct timeval ts;
+  char send_buff[BLKSIZE];
 
   port_no = (argc > 1) ? atoi(argv[1]) : SERV_UDP_PORT;
-  printf("待ち受けのポート番号は %d です．\n"
-	 "クライアントからのパケットを受信しヘッダ部分を表示すると同時に\n"
-	 "id 部分に 0x20 と排他論理の演算を行いクライアントに返します．\n",
-	 port_no);
+  printf("待ち受けのポート番号は %d です．\n", port_no);
   if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
     err_msg("srever: can't open datagram socket");
   }
@@ -51,20 +76,26 @@ int main(int argc, char *argv[])
     err_msg("srever: can't bind local address");
   }
   
-  for ( ; ; ) {
+  while ( 1 ) {
     n = recvfrom(sockfd, buf, BLKSIZE, MSG_WAITALL, (struct sockaddr *)&cli_addr, &cli_len);
-    gettimeofday(&t, &z);
-    if (n < 0) {
+    if ( n > 0) {
+      /* ファイルに書き込む */
+      output_log(inet_ntoa(cli_addr.sin_addr), buf);
+      gettimeofday(&ts, NULL);
+      /* :以降の文字を置換 */
+      replace_str(buf);
+      sprintf(send_buff, "%s:%0.f.%0.f", buf, (double)ts.tv_sec, (double)ts.tv_usec);
+      n = sendto(sockfd, send_buff, strlen(send_buff)+1, 0, (struct sockaddr *)&cli_addr, cli_len);        
+      if ( n < 0 ) {
+        err_msg("server: sendto error");
+        break;
+      }      
+    } else if ( n == -1 ) {
       err_msg("server: recvfrom error");
+      break;
     }
-    seqnum = (buf[ 1] << 24) | (buf[ 2] << 16) | (buf[ 3] << 8) | buf[ 4];
-    sec = (buf[ 5] << 24) | (buf[ 6] << 16) | (buf[ 7] << 8) | buf[ 8];
-    usec = (buf[ 9] << 24) | (buf[10] << 16) | (buf[11] << 8) | buf[12];
-    printf("%c: %6ld at %9ld.%06ld (from %9ld.%06ld, 差は %f ミリ秒です)\n",
-	   buf[0], seqnum, t.tv_sec, t.tv_usec, sec, usec,
-	   (tvaltof(t.tv_sec, t.tv_usec) - tvaltof(sec, usec))*1000);
-    fflush(stdout);
-    buf[0] ^= 0x20;
-    n = sendto(sockfd, buf, n, 0, (struct sockaddr *)&cli_addr, cli_len);
   }
+    /* fflush(stdout); */
+  printf("end\n");
+  return 0;
 }
