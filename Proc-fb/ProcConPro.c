@@ -44,7 +44,7 @@ void V(int semid)
 }
 
 // データをキューに書き込む 入力側の処理
-void write_data(int l, int semid, _queue *x)
+void write_data(int l, int semid, _queue *x, int pno)
 {
   int count = 0;
   int data, sleep_time;
@@ -59,7 +59,7 @@ void write_data(int l, int semid, _queue *x)
       count++;
     }
     V(semid);
-    printf("write size: %d %d", x->size, data);
+    printf("write process %d size: %d %d", pno, x->size, data);
     sleep_time = rand() / (RAND_MAX + 1.0) * 61 + 20;
     printf(", %d\n", sleep_time);
     usleep(sleep_time);
@@ -67,7 +67,7 @@ void write_data(int l, int semid, _queue *x)
 }
 
 // データをキューから読み出す 出力側の処理
-void read_data(int m, int semid, _queue *x)
+void read_data(int m, int semid, _queue *x, int pno)
 {
   int count = 0;
   int data;
@@ -81,7 +81,7 @@ void read_data(int m, int semid, _queue *x)
       count++;
     }
     V(semid);
-    printf("read size: %d", x->size);
+    printf("read process %d size: %d", pno, x->size);
     printf(", %d\n", data);
     usleep(data);
   }
@@ -99,7 +99,9 @@ int main()
   _queue *x;
   int semid;
   struct sembuf sops;
-  int pno;
+  int output_pno;
+  int input_pno;
+  int k;
   time_t t;
   srand((unsigned int)time(&t));
 
@@ -128,40 +130,42 @@ int main()
   }
 
   // 入力用プロセス生成
-  for ( pno = 0; pno < 1; pno++ ) {
-    input_pids[pno] = fork();
-    if ( input_pids[pno] == -1 ) {
+  for ( output_pno = 0; output_pno < 2; output_pno++ ) {
+    input_pids[output_pno] = fork();
+    if ( input_pids[output_pno] == -1 ) {
       break;
-    } else if (input_pids[pno] == 0) {
+    } else if (input_pids[output_pno] == 0) {
       // 入力プロセスの処理
-      write_data(10, semid, x);
+      write_data(10, semid, x, output_pno);
       /* receiver(msgid, pno); */
-      return pno;
+      return output_pno;
     } else {
-      printf("Process id of input child process is %d\n",input_pids[pno]);
+      printf("Process id of input child process is %d\n",input_pids[output_pno]);
     }      
   }
 
-  // 入力用プロセス生成
-  for ( pno = 0; pno < 1; pno++ ) {
-    output_pids[pno] = fork();
-    if ( output_pids[pno] == -1 ) {
+  // 出力用プロセス生成
+  for ( output_pno = 0; output_pno < 2; output_pno++ ) {
+    output_pids[output_pno] = fork();
+    if ( output_pids[output_pno] == -1 ) {
       break;
-    } else if ( output_pids[pno] == 0 ) {
+    } else if ( output_pids[output_pno] == 0 ) {
       // 出力プロセスの処理
-      read_data(10, semid, x);
-      /* receiver(msgid, pno); */
-      return pno;
+      read_data(10, semid, x, output_pno);
+      /* receiver(msgid, output_pno); */
+      return output_pno;
     } else {
-      printf("Process id of output child process is %d\n",output_pids[pno]);
+      printf("Process id of output child process is %d\n",output_pids[output_pno]);
     }      
   }
 
-  if (pno) {
-    if (wait(&status) == -1) {
-      perror("Wait error\n");
-    } else {
-      printf("Return value is %d\n",status);
+  if ((input_pno + output_pno)) {
+    for ( k = 0; k < input_pno + output_pno; k++ ) {
+      if (wait(&status) == -1) {
+        perror("Wait error\n");
+      } else {
+        printf("Return value is %d\n",status);
+      }
     }
     if (shmctl(shmid, IPC_RMID, NULL)) {
       perror("shmctl");
