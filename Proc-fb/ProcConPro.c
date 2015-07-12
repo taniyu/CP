@@ -48,8 +48,10 @@ void write_data(int l, int semid, _queue *x, int pno)
 {
   int count = 0;
   int data, sleep_time;
+  int flag;
   while ( 1 ) {
-    if ( count > l ) { return; }
+    flag = 0;
+    if ( count >= l ) { return; }
     data = rand() / (RAND_MAX + 1.0) * 61 + 20;
     P(semid);
     if ( x->size < QSIZE ) {
@@ -57,12 +59,15 @@ void write_data(int l, int semid, _queue *x, int pno)
       x->wptr %= l;
       x->size++;
       count++;
+      flag = 1;
     }
     V(semid);
-    printf("write process %d size: %d %d", pno, x->size, data);
-    sleep_time = rand() / (RAND_MAX + 1.0) * 61 + 20;
-    printf(", %d\n", sleep_time);
-    usleep(sleep_time);
+    if ( flag == 1) {
+      printf("write process %d size: %d %d", pno, x->size, data);
+      sleep_time = rand() / (RAND_MAX + 1.0) * 61 + 20;
+      printf(", %d\n", sleep_time);
+      usleep(sleep_time);
+    }
   }
 }
 
@@ -71,31 +76,34 @@ void read_data(int m, int semid, _queue *x, int pno)
 {
   int count = 0;
   int data;
+  int flag;
   while ( 1 ) {
-    if ( count > m ) { return; }
+    flag = 0;
+    if ( count >= m ) { return; }
     P(semid);
     if ( x->size > 0 ) {
       data = x->buff[x->rptr++];
       x->rptr %= m;
       x->size--;
       count++;
+      flag = 1;
     }
     V(semid);
-    printf("read process %d size: %d", pno, x->size);
-    printf(", %d\n", data);
-    usleep(data);
+    if ( flag == 1 ) {
+      printf("read process %d size: %d", pno, x->size);
+      printf(", %d\n", data);
+      usleep(data);
+    }
   }
 }
 
-int main()
+int main(int argc, char *argv[])
 {
   int pid;
   int input_pids[MAX_PID];
   int output_pids[MAX_PID];
   int status;
-  int loop1, loop2;
   int shmid;
-  /* int *x; */
   _queue *x;
   int semid;
   struct sembuf sops;
@@ -103,6 +111,21 @@ int main()
   int input_pno;
   int k;
   time_t t;
+  int output_num = 1;
+  int orepeat_num = 10;
+  int input_num = 1;
+  int irepeat_num = 10;
+
+  // 引数が指定されているとき
+  if ( argc >= 3 ) {
+    input_num = atoi(argv[1]);
+    output_num = atoi(argv[2]);
+    // 入力プロセス1 出力プロセス複数
+    if ( input_num == 1 && output_num > 1 ) { irepeat_num *= output_num; }
+    // 入力プロセス複数 出力プロセス1
+    if ( input_num > 1 && output_num == 1 ) { orepeat_num *= input_num; }
+  }
+
   srand((unsigned int)time(&t));
 
   shmid = shmget(IPC_PRIVATE, sizeof(_queue), IPC_CREAT | 0666);
@@ -130,29 +153,27 @@ int main()
   }
 
   // 入力用プロセス生成
-  for ( output_pno = 0; output_pno < 2; output_pno++ ) {
-    input_pids[output_pno] = fork();
-    if ( input_pids[output_pno] == -1 ) {
+  for ( input_pno = 0; input_pno < input_num; input_pno++ ) {
+    input_pids[input_pno] = fork();
+    if ( input_pids[input_pno] == -1 ) {
       break;
-    } else if (input_pids[output_pno] == 0) {
+    } else if (input_pids[input_pno] == 0) {
       // 入力プロセスの処理
-      write_data(10, semid, x, output_pno);
-      /* receiver(msgid, pno); */
-      return output_pno;
+      write_data(irepeat_num, semid, x, input_pno);
+      return input_pno;
     } else {
-      printf("Process id of input child process is %d\n",input_pids[output_pno]);
+      printf("Process id of input child process is %d\n",input_pids[input_pno]);
     }      
   }
 
   // 出力用プロセス生成
-  for ( output_pno = 0; output_pno < 2; output_pno++ ) {
+  for ( output_pno = 0; output_pno < output_num; output_pno++ ) {
     output_pids[output_pno] = fork();
     if ( output_pids[output_pno] == -1 ) {
       break;
     } else if ( output_pids[output_pno] == 0 ) {
       // 出力プロセスの処理
-      read_data(10, semid, x, output_pno);
-      /* receiver(msgid, output_pno); */
+      read_data(orepeat_num, semid, x, output_pno);
       return output_pno;
     } else {
       printf("Process id of output child process is %d\n",output_pids[output_pno]);
@@ -161,11 +182,8 @@ int main()
 
   if ((input_pno + output_pno)) {
     for ( k = 0; k < input_pno + output_pno; k++ ) {
-      if (wait(&status) == -1) {
-        perror("Wait error\n");
-      } else {
-        printf("Return value is %d\n",status);
-      }
+      if (wait(&status) == -1) { perror("Wait error\n"); } 
+      else { printf("Return value is %d\n",status); }
     }
     if (shmctl(shmid, IPC_RMID, NULL)) {
       perror("shmctl");
