@@ -12,7 +12,7 @@
 #define	STEP   100000 // 10万回のインクリメント毎に表示 
 #define	TOTAL 1000000 // 全体で100万回インクリメントする 
 #define MAX_PID 100  // プロセスの最大数
-#define QSIZE  100  // メッセージキュー領域の大きさ
+#define QSIZE  10  // メッセージキュー領域の大きさ
 
 // キューの宣言
 typedef struct {
@@ -43,6 +43,13 @@ void V(int semid)
   semop(semid, &sops, 1);	// Omitt error handling
 }
 
+// キューの初期化
+void init_queue(_queue *x) {
+  x->size = 0;
+  x->wptr = 0;
+  x->rptr = 0;
+}
+
 // データをキューに書き込む 入力側の処理
 void write_data(int l, int semid, _queue *x, int pno)
 {
@@ -56,17 +63,17 @@ void write_data(int l, int semid, _queue *x, int pno)
     P(semid);
     if ( x->size < QSIZE ) {
       x->buff[x->wptr++] = data;
-      x->wptr %= l;
+      x->wptr %= QSIZE;
       x->size++;
       count++;
       flag = 1;
     }
     V(semid);
     if ( flag == 1) {
-      printf("write process %d size: %d %d", pno, x->size, data);
+      printf("write process_id: %d size: %d writedata: %d", pno, x->size, data);
       sleep_time = rand() / (RAND_MAX + 1.0) * 61 + 20;
-      printf(", %d\n", sleep_time);
-      usleep(sleep_time);
+      printf(", sleep_time: %dm\n", sleep_time);
+      usleep(sleep_time * 1000);
     }
   }
 }
@@ -83,16 +90,16 @@ void read_data(int m, int semid, _queue *x, int pno)
     P(semid);
     if ( x->size > 0 ) {
       data = x->buff[x->rptr++];
-      x->rptr %= m;
+      x->rptr %= QSIZE;
       x->size--;
       count++;
       flag = 1;
     }
     V(semid);
     if ( flag == 1 ) {
-      printf("read process %d size: %d", pno, x->size);
-      printf(", %d\n", data);
-      usleep(data);
+      printf("read process_id: %d size: %d", pno, x->size);
+      printf(", read_data: %d\n", data);
+      usleep(data * 1000);
     }
   }
 }
@@ -125,7 +132,6 @@ int main(int argc, char *argv[])
     // 入力プロセス複数 出力プロセス1
     if ( input_num > 1 && output_num == 1 ) { orepeat_num *= input_num; }
   }
-
   srand((unsigned int)time(&t));
 
   shmid = shmget(IPC_PRIVATE, sizeof(_queue), IPC_CREAT | 0666);
@@ -138,10 +144,9 @@ int main(int argc, char *argv[])
     perror("shmat");
     exit(1);
   }
+
   // キューの初期化
-  x->size = 0;
-  x->wptr = 0;
-  x->rptr = 0;
+  init_queue(x);
 
   semid = semget(IPC_PRIVATE, 1, IPC_CREAT | 0666);
   if (semid == -1) {
@@ -162,7 +167,7 @@ int main(int argc, char *argv[])
       write_data(irepeat_num, semid, x, input_pno);
       return input_pno;
     } else {
-      printf("Process id of input child process is %d\n",input_pids[input_pno]);
+      printf("Process id of input child process is %d\n", input_pids[input_pno]);
     }      
   }
 
@@ -176,7 +181,7 @@ int main(int argc, char *argv[])
       read_data(orepeat_num, semid, x, output_pno);
       return output_pno;
     } else {
-      printf("Process id of output child process is %d\n",output_pids[output_pno]);
+      printf("Process id of output child process is %d\n", output_pids[output_pno]);
     }      
   }
 
