@@ -9,10 +9,9 @@
 #include <sys/sem.h>
 #include <time.h>
 
-#define	STEP   100000 // 10万回のインクリメント毎に表示 
-#define	TOTAL 1000000 // 全体で100万回インクリメントする 
 #define MAX_PID 100  // プロセスの最大数
 #define QSIZE  10  // メッセージキュー領域の大きさ
+#define ROOP 2  // データの数
 
 // キューの宣言
 typedef struct {
@@ -106,22 +105,20 @@ void read_data(int m, int semid, _queue *x, int pno)
 
 int main(int argc, char *argv[])
 {
-  int pid;
-  int input_pids[MAX_PID];
-  int output_pids[MAX_PID];
+  int pids[MAX_PID];
   int status;
   int shmid;
   _queue *x;
   int semid;
-  struct sembuf sops;
-  int output_pno;
-  int input_pno;
-  int k;
+  int i = 0, k;
   time_t t;
   int output_num = 1;
-  int orepeat_num = 10;
+  int orepeat_num = ROOP;
   int input_num = 1;
-  int irepeat_num = 10;
+  int irepeat_num = ROOP;
+  int process_flag = 0;
+  int input_id = 0;
+  int output_id = 0;
 
   // 引数が指定されているとき
   if ( argc >= 3 ) {
@@ -157,46 +154,45 @@ int main(int argc, char *argv[])
     perror("semctl at initializing value of semaphore"); 
   }
 
-  // 入力用プロセス生成
-  for ( input_pno = 0; input_pno < input_num; input_pno++ ) {
-    input_pids[input_pno] = fork();
-    if ( input_pids[input_pno] == -1 ) {
+  // プロセスの生成
+  while( (input_num + output_num) > 0 ) {
+    pids[i] = fork();
+    // 作成するプロセスを決定
+    if ( input_num > 0 && i%2 == 0 ) { process_flag = 0; }  // 入力プロセス生成
+    else if ( output_num > 0 && i%2 == 1 ) { process_flag = 1; }  // 出力プロセス生成
+    else if ( 1 > input_num ) { process_flag = 1; }  // 出力プロセス生成
+    else if ( 1 > output_num ) { process_flag = 0; } // 入力プロセス生成
+    // 生成できたプロセスに応じて処理を分ける
+    if ( pids[i] == -1 ) {
       break;
-    } else if (input_pids[input_pno] == 0) {
-      // 入力プロセスの処理
-      write_data(irepeat_num, semid, x, input_pno);
-      return input_pno;
+    } else if (pids[i] == 0) {
+      // process_flagに応じて生成するプロセスを変更
+      if ( process_flag == 0 ) { write_data(irepeat_num, semid, x, input_id); }
+      else { read_data(orepeat_num, semid, x, output_id); }
+      return i;
     } else {
-      printf("Process id of input child process is %d\n", input_pids[input_pno]);
+      // 親の処理
+      if ( process_flag == 0 ) {
+        printf("Process id of write child process is %d\n", pids[i]);
+        input_id++;
+        input_num--;
+      } else {
+        printf("Process id of read child process is %d\n", pids[i]);
+        output_id++;
+        output_num--;
+      }
     }      
+    i++;
   }
 
-  // 出力用プロセス生成
-  for ( output_pno = 0; output_pno < output_num; output_pno++ ) {
-    output_pids[output_pno] = fork();
-    if ( output_pids[output_pno] == -1 ) {
-      break;
-    } else if ( output_pids[output_pno] == 0 ) {
-      // 出力プロセスの処理
-      read_data(orepeat_num, semid, x, output_pno);
-      return output_pno;
-    } else {
-      printf("Process id of output child process is %d\n", output_pids[output_pno]);
-    }      
-  }
-
-  if ((input_pno + output_pno)) {
-    for ( k = 0; k < input_pno + output_pno; k++ ) {
+  // 親の処理
+  if ( i ) {
+    for ( k = 0; k < i; k++ ) {
       if (wait(&status) == -1) { perror("Wait error\n"); } 
       else { printf("Return value is %d\n",status); }
     }
-    if (shmctl(shmid, IPC_RMID, NULL)) {
-      perror("shmctl");
-    }
-    if (semctl(semid, 0, IPC_RMID)) {
-      perror("semctl");
-    }
-  } else {
-    return 0;
+    if (shmctl(shmid, IPC_RMID, NULL)) { perror("shmctl"); }
+    if (semctl(semid, 0, IPC_RMID)) { perror("semctl"); }    
   }
+  return 0;
 }
