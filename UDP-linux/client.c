@@ -48,17 +48,12 @@ int main(int argc, char *argv[])
 {
   int port_no;
   int ipaddr;
-  int seq, sec, usec, n;
-  /* unsigned char buf[BLKSIZE]; */
+  int n;
   char buf[BLKSIZE];
-  char *tmp1;
-  /* unsigned char buf2[BLKSIZE]; */
   char buf2[BLKSIZE], output_buff[BLKSIZE];
-  struct timeval t, t1, t2;
-  struct timezone z;
+  struct timeval t1, t2;
   struct sockaddr_in serv_addr2;
   int serv_len2;
-  time_t et;
   struct hostent *retrieve;
   double r_sec, diff;
   int rflag, wflag, endflag;
@@ -117,13 +112,13 @@ int main(int argc, char *argv[])
 
     while ( wflag == 0 ) {
       n = recvfrom(sockfd, buf2, BLKSIZE, MSG_WAITALL, (struct sockaddr *)&serv_addr2, &serv_len2);
-      gettimeofday(&t2, NULL);  /* 受け取った時間を取得 */
+      gettimeofday(&t2, NULL);  // 受け取った時間を取得
       if ( n > 0 ) { 
         if( buf2[0] == '\001' ) {
           endflag = 1;
           break;
         }
-        r_sec = atof(search_num(buf2)); /* 時間の部分を取得 */
+        r_sec = atof(search_num(buf2)); // 時間の部分を取得
         wflag = 1;
       }
     }

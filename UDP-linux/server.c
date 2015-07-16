@@ -13,7 +13,6 @@
 #define tvaltof(ts, tus) ((ts)+(double)(tus)/1000000)
 
 #define	BLKSIZE	2048
-/* unsigned char buf[BLKSIZE]; */
 char buf[BLKSIZE];
 
 void err_msg(char *msg)
@@ -79,10 +78,10 @@ int main(int argc, char *argv[])
   while ( 1 ) {
     n = recvfrom(sockfd, buf, BLKSIZE, MSG_WAITALL, (struct sockaddr *)&cli_addr, &cli_len);
     if ( n > 0) {
-      /* ファイルに書き込む */
+      // ファイルに書き込む
       output_log(inet_ntoa(cli_addr.sin_addr), buf);
       gettimeofday(&ts, NULL);
-      /* :以降の文字を置換 */
+      // :以降の文字を置換
       replace_str(buf);
       sprintf(send_buff, "%s:%0.f.%0.f", buf, (double)ts.tv_sec, (double)ts.tv_usec);
       n = sendto(sockfd, send_buff, strlen(send_buff)+1, 0, (struct sockaddr *)&cli_addr, cli_len);        
