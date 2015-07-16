@@ -1,6 +1,6 @@
 CFLAGS = -O2
 LDFLAGS = -pthread -lm
-EXEC = innerProduct innerProductThread
+EXEC = innerProduct innerProductThread quickSort quickSortThread
 
 all: $(EXEC)
 
