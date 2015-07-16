@@ -1,7 +1,7 @@
 CFLAGS = -O2
-LDFLAGS = -lpthread -lm
+LDFLAGS = -pthread -lm
 EXEC = Thread-inc Thread-mutex-inc Memalloc Simultest NoLock \
-	WithLock WithTryLock ProdCons ProdCons-cond ProdMCons-cond
+	WithLock WithTryLock ProdCons ProdCons-cond ProdMCons-cond InnerProduct InnerProductThread
 
 all: $(EXEC)
 
