@@ -1,6 +1,6 @@
 CFLAGS = -O2
 LDFLAGS = -pthread -lm
-EXEC = InnerProduct InnerProductThread
+EXEC = innerProduct innerProductThread
 
 all: $(EXEC)
 

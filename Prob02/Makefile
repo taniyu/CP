@@ -1,5 +1,5 @@
 CFLAGS = -O2
-EXEC = ProcConPro
+EXEC = procConPro
 
 
 all: $(EXEC)
