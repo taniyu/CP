@@ -124,11 +124,10 @@ int main(int argc, char *argv[])
   if ( argc >= 3 ) {
     input_num = atoi(argv[1]);
     output_num = atoi(argv[2]);
-    // 入力プロセス1 出力プロセス複数
-    if ( input_num == 1 && output_num > 1 ) { irepeat_num *= output_num; }
-    // 入力プロセス複数 出力プロセス1
-    if ( input_num > 1 && output_num == 1 ) { orepeat_num *= input_num; }
+    irepeat_num = output_num * ROOP;
+    orepeat_num = input_num * ROOP;
   }
+
   srand((unsigned int)time(&t));
 
   shmid = shmget(IPC_PRIVATE, sizeof(_queue), IPC_CREAT | 0666);
