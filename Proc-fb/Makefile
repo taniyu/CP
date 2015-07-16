@@ -1,5 +1,5 @@
 CFLAGS = -O2
-EXEC = ProcNonShareTest ProcShareTest ProcShareTest2 ProcShareTest3 ProcShareSem ProcSemTest ProcMsgTestPwait ProcMsgTestCwait ProcMsgTestCwait2 ProcMsgTestCwait3 ProcConPro
+EXEC = ProcNonShareTest ProcShareTest ProcShareTest2 ProcShareTest3 ProcShareSem ProcSemTest ProcMsgTestPwait ProcMsgTestCwait ProcMsgTestCwait2 ProcMsgTestCwait3
 
 
 all: $(EXEC)
