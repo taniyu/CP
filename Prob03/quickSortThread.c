@@ -6,7 +6,7 @@
 #define SIZE 100000000
 #define MAX  100000000
 #define MAX_DEPTH 6
-#define LENGTH 25
+#define LENGTH 10
 #define tvaltof(ts, tus) ((ts) + (double)(tus)/1000000)
 
 typedef struct {
@@ -58,15 +58,15 @@ void _qsort(_range *range)
   _range tmp2;
   pthread_t thread1 = 1, thread2 = 2;
 
-  if ( (range->right - range->left) <= LENGTH ) {
-    insertion_sort(tmp1);
-    return;
-  }
+  /* if ( (range->right - range->left) <= LENGTH ) { */
+  /*   insertion_sort(tmp1); */
+  /*   return; */
+  /* } */
   if ( range->left >= range->right ) { return; }
   v = partition(range);
   tmp1.depth += 1;
   tmp2 = tmp1;
-  if ( tmp1.depth > MAX_DEPTH ) {
+  if ( tmp1.depth > MAX_DEPTH /* || (range->right - range->left) <= LENGTH */ ) {
     tmp1.right = v-1;
     _qsort(&tmp1);
     tmp2.left = v + 1;

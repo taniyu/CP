@@ -4,7 +4,7 @@
 
 #define SIZE 100000000
 #define MAX  100000000
-#define LENGTH 25
+#define LENGTH 10
 #define tvaltof(ts, tus) ((ts) + (double)(tus)/1000000)
 
 typedef struct {
@@ -52,10 +52,10 @@ void _qsort(_range range)
   int v;
   _range tmp = range;
 
-  if ( (range.right - range.left) <= LENGTH ) {
-    insertion_sort(tmp);
-    return;
-  }
+  /* if ( (range.right - range.left) <= LENGTH ) { */
+  /*   insertion_sort(tmp); */
+  /*   return; */
+  /* } */
   if (range.left >= range.right) { return; }
   v = partition(range);
   tmp.right = v-1;
