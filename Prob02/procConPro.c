@@ -19,7 +19,7 @@ typedef struct {
   int rptr;   // 出力位置
   int buff[QSIZE]; // データ格納用配列
   int size;   // データ数
-} _queue;
+} Queue;
 
 
 void P(int semid)
@@ -43,63 +43,55 @@ void V(int semid)
 }
 
 // キューの初期化
-void init_queue(_queue *x) {
-  x->size = 0;
-  x->wptr = 0;
-  x->rptr = 0;
+void init_queue(Queue *msg_queue) {
+  msg_queue->size = 0;
+  msg_queue->wptr = 0;
+  msg_queue->rptr = 0;
 }
 
 // データをキューに書き込む 入力側の処理
-void write_data(int l, int semid, _queue *x, int pno)
+void write_data(int l, int semid, Queue *msg_queue, int pno)
 {
   int count = 0;
   int data, sleep_time;
-  int flag;
+
+  srand((unsigned int)time(NULL) + pno);
+
   while ( 1 ) {
-    flag = 0;
     if ( count >= l ) { return; }
     data = rand() / (RAND_MAX + 1.0) * 61 + 20;
     P(semid);
-    if ( x->size < QSIZE ) {
-      x->buff[x->wptr++] = data;
-      x->wptr %= QSIZE;
-      x->size++;
+    if ( msg_queue->size < QSIZE ) {
+      msg_queue->buff[msg_queue->wptr++] = data;
+      msg_queue->wptr %= QSIZE;
+      msg_queue->size++;
       count++;
-      flag = 1;
-    }
-    V(semid);
-    if ( flag == 1) {
-      printf("write process_id: %d size: %d writedata: %d", pno, x->size, data);
+      printf("write process_id: %d buf_size: %d writedata: %d\n", pno, msg_queue->size, data);
       sleep_time = rand() / (RAND_MAX + 1.0) * 61 + 20;
-      printf(", sleep_time: %dm\n", sleep_time);
       usleep(sleep_time * 1000);
     }
+    V(semid);
   }
 }
 
 // データをキューから読み出す 出力側の処理
-void read_data(int m, int semid, _queue *x, int pno)
+void read_data(int m, int semid, Queue *msg_queue, int pno)
 {
   int count = 0;
   int data;
-  int flag;
   while ( 1 ) {
-    flag = 0;
     if ( count >= m ) { return; }
     P(semid);
-    if ( x->size > 0 ) {
-      data = x->buff[x->rptr++];
-      x->rptr %= QSIZE;
-      x->size--;
+    if ( msg_queue->size > 0 ) {
+      data = msg_queue->buff[msg_queue->rptr++];
+      msg_queue->rptr %= QSIZE;
+      msg_queue->size--;
       count++;
-      flag = 1;
-    }
-    V(semid);
-    if ( flag == 1 ) {
-      printf("read process_id: %d size: %d", pno, x->size);
-      printf(", read_data: %d\n", data);
+      printf("read  process_id: %d buf_size: %d", pno, msg_queue->size);
+      printf(" readdata:  %d\n", data);
       usleep(data * 1000);
     }
+    V(semid);
   }
 }
 
@@ -108,10 +100,9 @@ int main(int argc, char *argv[])
   int pids[MAX_PID];
   int status;
   int shmid;
-  _queue *x;
+  Queue *msg_queue;
   int semid;
   int i = 0, k;
-  time_t t;
   int output_num = 1;
   int orepeat_num = ROOP;
   int input_num = 1;
@@ -128,21 +119,19 @@ int main(int argc, char *argv[])
     orepeat_num = input_num * ROOP;
   }
 
-  srand((unsigned int)time(&t));
-
-  shmid = shmget(IPC_PRIVATE, sizeof(_queue), IPC_CREAT | 0666);
+  shmid = shmget(IPC_PRIVATE, sizeof(Queue), IPC_CREAT | 0666);
   if (shmid == -1) {
     perror("shmget");
     exit(1);
   }
-  x = (_queue *)shmat(shmid, NULL, 0);
-  if (x == (_queue *)-1) {
+  msg_queue = (Queue *)shmat(shmid, NULL, 0);
+  if (msg_queue == (Queue *)-1) {
     perror("shmat");
     exit(1);
   }
 
   // キューの初期化
-  init_queue(x);
+  init_queue(msg_queue);
 
   semid = semget(IPC_PRIVATE, 1, IPC_CREAT | 0666);
   if (semid == -1) {
@@ -166,17 +155,17 @@ int main(int argc, char *argv[])
       break;
     } else if (pids[i] == 0) {
       // process_flagに応じて生成するプロセスを変更
-      if ( process_flag == 0 ) { write_data(irepeat_num, semid, x, input_id); }
-      else { read_data(orepeat_num, semid, x, output_id); }
+      if ( process_flag == 0 ) { write_data(irepeat_num, semid, msg_queue, input_id); }
+      else { read_data(orepeat_num, semid, msg_queue, output_id); }
       return i;
     } else {
       // 親の処理
       if ( process_flag == 0 ) {
-        printf("Process id of write child process is %d\n", pids[i]);
+        /* printf("Process id of write child process is %d\n", pids[i]); */
         input_id++;
         input_num--;
       } else {
-        printf("Process id of read child process is %d\n", pids[i]);
+        /* printf("Process id of read child process is %d\n", pids[i]); */
         output_id++;
         output_num--;
       }
@@ -188,7 +177,7 @@ int main(int argc, char *argv[])
   if ( i ) {
     for ( k = 0; k < i; k++ ) {
       if (wait(&status) == -1) { perror("Wait error\n"); } 
-      else { printf("Return value is %d\n",status); }
+      /* else { printf("Return value is %d\n",status); } */
     }
     if (shmctl(shmid, IPC_RMID, NULL)) { perror("shmctl"); }
     if (semctl(semid, 0, IPC_RMID)) { perror("semctl"); }    
