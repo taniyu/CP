@@ -291,8 +291,6 @@ int main()
   struct msqid_ds qds;
   int seeds[MAXCHNUM];
   Hand hand;
-  Hand hands[MAXCHNUM + 1];  // 全てのプレイヤーの手を格納
-  Result results[MAXCHNUM + 1];  // じゃんけんの結果を格納
   Bool play_flag, lose_flag = TRUE;
   int cpu_num = 0;
   int tmp_cpu_num;
