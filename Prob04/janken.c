@@ -14,7 +14,7 @@
 #define QSIZE   100  // メッセージキュー領域の大きさ
 #define ENDMSG "end"
 #define DECMSG "decide"
-#define MAXCHNUM 3
+#define MAXCHNUM 10
 #define BUFF 256
 #define KIND 3
 
@@ -45,11 +45,11 @@ void cpu_player(int recv_msgid, int send_msgid, int chno, int seed)
       perror("Message receive");
     } else {
       mbuf.mtext[msgsize] = '\0';
-      printf("Child %d receives \"%s\"\n", chno, mbuf.mtext);
+      /* printf("Child %d receives \"%s\"\n", chno, mbuf.mtext); */
     }
     if ( strcmp(mbuf.mtext, DECMSG) == 0 ) {
       hand = (int)(rand() / (RAND_MAX + 1.0) * KIND);
-      printf("chno:%d hand:%d seed:%d\n", chno, hand, seed);
+      /* printf("chno:%d hand:%d seed:%d\n", chno, hand, seed); */
       snprintf(mbuf.mtext, MAXMSG, "%d:%d", chno, hand);
       msgsize = strlen(mbuf.mtext);
       if (msgsnd(send_msgid, &mbuf, msgsize, 0)) {
@@ -75,7 +75,7 @@ void sender(int send_msgid, int chno, char *msg)
     if (msgsnd(send_msgid, &mbuf, msgsize, 0)) {
       perror("Message Send");
     }
-    printf("Parent sends \"%s\"\n", mbuf.mtext);
+    /* printf("Parent sends \"%s\"\n", mbuf.mtext); */
   }
 }
 
@@ -96,6 +96,34 @@ void recv_hand(int recv_msgid, Hand hands[MAXCHNUM], int chnum)
     }    
   }
 }
+
+// 人数の入力
+int input_cpu_num(void)
+{
+  int num, i;
+  char buff[BUFF];
+
+  puts("CPUの人数を入力してください．(1以上 10未満)");
+  puts("0 または q を入力すると終わります．");
+  while ( 1 ) {
+    if ( fgets(buff, BUFF, stdin) == NULL ) {
+      return FALSE;
+    }
+    for ( i = 0; buff[i] != '\0'; i++ ) {
+      // 入力が正しいとき
+      if ( '1' <= buff[i] && buff[i] <= '9' ) {
+        num = buff[i] - '0';
+        return num;
+      }
+      // ゲームの終了
+      if ( buff[i] == 'q' || buff[i] == '0' ) { return 0; }
+    }
+    puts("入力が正しくありません，1~9までの数値を入力してください．");    
+    puts("0 または q を入力すると終わります．");
+  }
+  return 0;
+}
+
 // 手の入力
 Bool input_hand(Hand *hand)
 {
@@ -173,7 +201,7 @@ void print_result(Hand *hands, Result *results, int chnum)
   }
   printf("PLAYER : %s\t: %s\n", g_hand_str[hands[i]], g_result_str[results[i]]);
   puts("-----------------------------------------");
-  printf("            %s\n", g_result_str[results[i]]);
+  printf("                 %s\n", g_result_str[results[i]]);
   puts("-----------------------------------------");
 }
 
@@ -200,6 +228,7 @@ int main()
   Hand hands[MAXCHNUM + 1];  // 全てのプレイヤーの手を格納
   Result results[MAXCHNUM + 1];  // じゃんけんの結果を格納
   Bool flag;
+  int cpu_num = 0;
 
   // 親が子にメッセージ送信で使う
   parent_msgid = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
@@ -211,7 +240,7 @@ int main()
     perror("msgctl");
     exit(1);
   }
-  printf("Change queue size %lu to %d\n",qds.msg_qbytes, QSIZE);
+  /* printf("Change queue size %lu to %d\n",qds.msg_qbytes, QSIZE); */
   qds.msg_qbytes = QSIZE;
   if (msgctl(parent_msgid, IPC_SET, &qds)) {
     perror("msgctl");
@@ -227,18 +256,24 @@ int main()
     perror("msgctl");
     exit(1);
   }
-  printf("Change queue size %lu to %d\n",qds.msg_qbytes, QSIZE);
+  /* printf("Change queue size %lu to %d\n",qds.msg_qbytes, QSIZE); */
   qds.msg_qbytes = QSIZE;
   if (msgctl(child_msgid, IPC_SET, &qds)) {
     perror("msgctl");
     exit(1);
   }
 
+
   // 乱数の初期化
   srand((unsigned int)time(NULL));
   rand(); rand(); rand(); rand(); rand();
 
-  for (pno = 0; pno < MAXCHNUM; pno++) {
+  // CPU 数の入力
+  cpu_num = input_cpu_num();
+  if ( cpu_num >= 1 ) { printf("%d 人で じゃんけん を行います．\n", cpu_num + 1); } 
+  else { printf("%d 人なので じゃんけん できません．\n", cpu_num); }
+
+  for (pno = 0; pno < cpu_num; pno++) {
     // 10000未満の乱数を生成
     seeds[pno] = rand() / (RAND_MAX + 1.0) * 10000;
     pid[pno] = fork();
@@ -247,10 +282,9 @@ int main()
       break;
     } else if (pid[pno] == 0) {
       cpu_player(parent_msgid, child_msgid, pno, seeds[pno]);
-      /* receiver(msgid, pno); */
       return pno;
     } else {
-      printf("Process id of child process is %d\n",pid[pno]);
+      /* printf("Process id of child process is %d\n",pid[pno]); */
     }
   }
 
@@ -263,27 +297,28 @@ int main()
       // flag が FASLEであればゲームを強制終了
       if ( flag == FALSE ) {
         // 子に終了用のメッセージを送る
-        sender(parent_msgid, MAXCHNUM, ENDMSG);
+        sender(parent_msgid, cpu_num, ENDMSG);
         break;
       }
       // player の手を格納
-      hands[MAXCHNUM] = hand;
+      hands[cpu_num] = hand;
       // 子に手を決定するようにメッセージを送る
-      sender(parent_msgid, MAXCHNUM, DECMSG);
+      sender(parent_msgid, cpu_num, DECMSG);
       // flag が trueの場合 じゃんけんを行う
       // 子の手を受け取る
-      recv_hand(child_msgid, hands, MAXCHNUM);
+      recv_hand(child_msgid, hands, cpu_num);
       // ジャッジする
-      cluc_result(hands, results, MAXCHNUM + 1);
+      cluc_result(hands, results, cpu_num + 1);
       // 結果を出力する
-      print_result(hands, results, MAXCHNUM);
+      print_result(hands, results, cpu_num);
     }
 
+    // 子の終了を待つ
     for (i = 0; i < pno; i++) {
       if (wait(&status) == -1) {
         perror("Wait error\n");
       } else {
-        printf("Terminates Child #%d\n", (status >> 8) & 0xff);
+        /* printf("Terminates Child #%d\n", (status >> 8) & 0xff); */
       }
     }
   }
