@@ -8,13 +8,13 @@
 #include <string.h>
 #include <time.h>
 
-#define CHNUM    3  // 子プロセスの個数
 #define MSGNUM   40
 #define	MAXMSG  100
 #define QSIZE   100  // メッセージキュー領域の大きさ
 #define ENDMSG "end"
 #define DECMSG "decide"
-#define MAXCHNUM 10
+#define INITMSG "TTTTTTTTTT"
+#define MAXCHNUM 10  // プロセスの最大数
 #define BUFF 256
 #define KIND 3
 
@@ -27,6 +27,12 @@ typedef struct {
   char mtext[MAXMSG+1];
 } Msgbuf;
 
+typedef struct {
+  Hand hand;  // プレイヤーの手を格納
+  Result result;  // じゃんけんの結果を格納
+  Bool exist_flag; // 生存の有無
+} User;
+
 char *g_hand_str[KIND] = { "グー", "チョキ", "パー" };
 char *g_result_str[KIND] = { "負け", "勝ち", "引き分け" };
 
@@ -36,6 +42,7 @@ void cpu_player(int recv_msgid, int send_msgid, int chno, int seed)
   Hand hand;
   Msgbuf mbuf;
   int msgsize;
+  Bool exist_flag = TRUE;
 
   srand((unsigned int)time(NULL) + seed);
   rand(); rand(); rand(); rand(); rand();
@@ -46,7 +53,16 @@ void cpu_player(int recv_msgid, int send_msgid, int chno, int seed)
     } else {
       mbuf.mtext[msgsize] = '\0';
       /* printf("Child %d receives \"%s\"\n", chno, mbuf.mtext); */
+    }    
+
+    // 自分に参加資格がない場合手を返さない 
+    if ( msgsize >= 9 ) {
+      if ( mbuf.mtext[chno] == 'F' ) { exist_flag = FALSE; }
+      else if ( mbuf.mtext[chno] == 'T' ) { exist_flag = TRUE; }
     }
+    if ( exist_flag == FALSE ) {  usleep(100000); continue; }
+
+    // 手を決定する
     if ( strcmp(mbuf.mtext, DECMSG) == 0 ) {
       hand = (int)(rand() / (RAND_MAX + 1.0) * KIND);
       /* printf("chno:%d hand:%d seed:%d\n", chno, hand, seed); */
@@ -56,12 +72,13 @@ void cpu_player(int recv_msgid, int send_msgid, int chno, int seed)
         perror("Message Send");
       }
     }
+    
     usleep(100000);
   } while (strcmp(mbuf.mtext, ENDMSG) != 0);
 }
 
 // メッセージ送信側 (親プロセス)
-// 指定されたメッセージを子供に送る
+// 指定されたメッセージを子供の数だけ送る
 void sender(int send_msgid, int chno, char *msg)
 {
   int i;
@@ -79,7 +96,8 @@ void sender(int send_msgid, int chno, char *msg)
   }
 }
 
-void recv_hand(int recv_msgid, Hand hands[MAXCHNUM], int chnum)
+// 子の手を受け取る
+void recv_hand(int recv_msgid, User *users, int chnum)
 {
   int i;
   Msgbuf mbuf;
@@ -92,8 +110,8 @@ void recv_hand(int recv_msgid, Hand hands[MAXCHNUM], int chnum)
     } else {
       mbuf.mtext[msgsize] = '\0';
       // 子の手を配列に格納
-      hands[mbuf.mtext[0] - '0'] = mbuf.mtext[2] - '0';
-    }    
+      users[mbuf.mtext[0] - '0'].hand = mbuf.mtext[2] - '0';
+    }
   }
 }
 
@@ -149,7 +167,7 @@ Bool input_hand(Hand *hand)
   return TRUE;
 }
 
-void cluc_result(Hand *hands, Result *results, int chnum)
+void cluc_result(User *users)
 {
   int i;
   Bool stone_flag = FALSE;
@@ -160,8 +178,9 @@ void cluc_result(Hand *hands, Result *results, int chnum)
   
 
   // どんな手があったがの確認
-  for ( i = 0; i < chnum; i++ ) {
-    switch ( hands[i] ) {
+  for ( i = 0; i < MAXCHNUM+1; i++ ) {
+    if ( users[i].exist_flag == FALSE ) { continue; }
+    switch ( users[i].hand ) {
     case STONE: stone_flag = TRUE; break;
     case SCISSORS: scissors_flag = TRUE; break;
     case PAPER: paper_flag = TRUE; break;
@@ -182,36 +201,83 @@ void cluc_result(Hand *hands, Result *results, int chnum)
     draw_flag = FALSE;
   }
   // 結果を配列に格納
-  for ( i = 0; i < chnum; i++ ) {
-    if ( draw_flag ) { 
-      results[i] = DRAW;
+  for ( i = 0; i < MAXCHNUM+1; i++ ) {
+    if ( users[i].exist_flag == FALSE ) { continue; }
+    if ( draw_flag ) {
+      users[i].result = DRAW;
     } else {
-      if ( hands[i] == winner_hand ) { results[i] = WIN; }
-      else { results[i] = LOSE; }
+      if ( users[i].hand == winner_hand ) { users[i].result = WIN; }
+      else { users[i].result = LOSE; }
     }
   }
 }
 
 // 結果の出力
-void print_result(Hand *hands, Result *results, int chnum)
-{
-  int i;
-  for ( i = 0; i < chnum; i++ ) {
-    printf("CPU    : %s\t: %s\n", g_hand_str[hands[i]], g_result_str[results[i]]);
-  }
-  printf("PLAYER : %s\t: %s\n", g_hand_str[hands[i]], g_result_str[results[i]]);
-  puts("-----------------------------------------");
-  printf("                 %s\n", g_result_str[results[i]]);
-  puts("-----------------------------------------");
-}
-
-void init(Hand *hands, Result *results)
+void print_result(User *users)
 {
   int i;
   for ( i = 0; i < MAXCHNUM; i++ ) {
-    hands[i] = STONE;
-    results[i] = LOSE;
+    if ( users[i].exist_flag ) {
+      printf("CPU %d  : %s\t: %s\n", i, g_hand_str[users[i].hand], g_result_str[users[i].result]);
+    }
   }
+  printf("PLAYER : %s\t: %s\n", g_hand_str[users[i].hand], g_result_str[users[i].result]);
+  puts("-----------------------------------------");
+  printf("                 %s\n", g_result_str[users[i].result]);
+  puts("-----------------------------------------");
+}
+
+// 初期化
+void init(User *users, int cpu_num)
+{
+  int i;
+  int ct = 0;
+  for ( i = 0; i < MAXCHNUM; i++ ) {
+    users[i].hand = STONE;
+    users[i].result = DRAW;
+    if ( ct < cpu_num ) { users[i].exist_flag = TRUE; }
+    else { users[i].exist_flag = FALSE; }
+    ct++;
+  }
+  users[i].hand = STONE;
+  users[i].result = DRAW;
+  users[i].exist_flag = TRUE;
+}
+
+// 子の削除
+int delete_cpu(int send_msgid, User *users, int cpu_num)
+{
+  int i;
+  int ct = 0;
+  char status[MAXCHNUM];
+
+  for ( i = 0; i < MAXCHNUM; i++ ) { status[i] = 'T'; }
+  for ( i = 0; i < MAXCHNUM; i++ ) {
+    if ( users[i].result == LOSE && users[i].exist_flag == TRUE ) {
+      users[i].exist_flag = FALSE;
+      status[i] = 'F';
+      ct++;
+    }
+  }
+  // 子にメッセージを送る
+  sender(send_msgid, cpu_num, status);
+  return ct;
+}
+
+// 次のゲームに進むかどうかを判定
+Bool is_next(User *users)
+{
+  int i;
+  Bool next_flag = FALSE;;
+
+  if ( users[MAXCHNUM].result == WIN ) { next_flag = TRUE; }
+  else if ( users[MAXCHNUM].result == LOSE ) { return TRUE; }
+  else { return FALSE; }
+
+  for ( i = 0; i < MAXCHNUM; i++ ) {
+    if ( users[i].exist_flag && users[i].result == WIN ) { return FALSE; }
+  }
+  return next_flag;
 }
 
 int main()
@@ -227,8 +293,10 @@ int main()
   Hand hand;
   Hand hands[MAXCHNUM + 1];  // 全てのプレイヤーの手を格納
   Result results[MAXCHNUM + 1];  // じゃんけんの結果を格納
-  Bool flag;
+  Bool play_flag, lose_flag = TRUE;
   int cpu_num = 0;
+  int tmp_cpu_num;
+  User users[MAXCHNUM + 1];  // player は最後
 
   // 親が子にメッセージ送信で使う
   parent_msgid = msgget(IPC_PRIVATE, IPC_CREAT | 0666);
@@ -268,10 +336,12 @@ int main()
   srand((unsigned int)time(NULL));
   rand(); rand(); rand(); rand(); rand();
 
+  puts("じゃんけんを行います．");
+
   // CPU 数の入力
   cpu_num = input_cpu_num();
-  if ( cpu_num >= 1 ) { printf("%d 人で じゃんけん を行います．\n", cpu_num + 1); } 
-  else { printf("%d 人なので じゃんけん できません．\n", cpu_num); }
+  tmp_cpu_num = cpu_num;
+  if ( cpu_num == 0 ) { printf("%d 人なので じゃんけん できません．\n", cpu_num); }
 
   for (pno = 0; pno < cpu_num; pno++) {
     // 10000未満の乱数を生成
@@ -291,26 +361,41 @@ int main()
   // 親プロセスの処理
   if (pno) {	// 子プロセスを1つ以上持っている
     while ( 1 ) {
-      init(hands, results);
+      if ( lose_flag ) {
+        lose_flag = FALSE;
+        tmp_cpu_num = cpu_num;
+        init(users, cpu_num);
+        sender(parent_msgid, cpu_num, INITMSG);
+        puts("#########################################");
+        puts("新規 ゲーム開始");
+        /* printf("%d 人でじゃんけんを行います．", tmp_cpu_num); */
+        puts("#########################################");
+      }
+      printf("%d 人でじゃんけんを行います．\n", tmp_cpu_num + 1);
+      puts("++++++++++++++++++++++++++++++++++++++++");
       // playerに手を入力させる
-      flag = input_hand(&hand);
-      // flag が FASLEであればゲームを強制終了
-      if ( flag == FALSE ) {
+      play_flag = input_hand(&hand);
+      // play_flag が FASLEであればゲームを強制終了
+      if ( play_flag == FALSE ) {
         // 子に終了用のメッセージを送る
         sender(parent_msgid, cpu_num, ENDMSG);
         break;
       }
       // player の手を格納
-      hands[cpu_num] = hand;
+      users[MAXCHNUM].hand = hand;
       // 子に手を決定するようにメッセージを送る
       sender(parent_msgid, cpu_num, DECMSG);
-      // flag が trueの場合 じゃんけんを行う
+      // play_flag が trueの場合 じゃんけんを行う
       // 子の手を受け取る
-      recv_hand(child_msgid, hands, cpu_num);
+      recv_hand(child_msgid, users, tmp_cpu_num);
       // ジャッジする
-      cluc_result(hands, results, cpu_num + 1);
+      cluc_result(users);
       // 結果を出力する
-      print_result(hands, results, cpu_num);
+      print_result(users);
+      // 負けた子を消す
+      tmp_cpu_num -= delete_cpu(parent_msgid, users, cpu_num);
+      // player 勝利する（一人になる）か敗北するかで次のゲームへ
+      if ( is_next(users) ) { lose_flag = TRUE; }
     }
 
     // 子の終了を待つ
