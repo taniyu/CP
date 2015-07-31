@@ -13,22 +13,22 @@ typedef struct {
   int left;
   int right;
   int depth;
-} _range;
+} Range;
 
-void quick_sort(_range *range);
-void _qsort(_range *range);
-int partition(_range *range);
+void quick_sort(Range *range);
+void _qsort(Range *range);
+int partition(Range *range);
 void swap(int i, int j);
 void print_arr();
 void init_arr();
-void insertion_sort(_range range);
+void insertion_sort(Range range);
 
 int x[SIZE];
 pthread_mutex_t mutex;
 
 int main(void)
 {
-  _range range;
+  Range range;
   struct timeval start, end;
   range.left = 0;
   range.right = SIZE;
@@ -45,17 +45,17 @@ int main(void)
   return 0;
 }
 
-void quick_sort(_range *range)
+void quick_sort(Range *range)
 {
   range->right -= 1;
   _qsort(range);
 }
 
-void _qsort(_range *range)
+void _qsort(Range *range)
 {
   int v;
-  _range tmp1 = *range;
-  _range tmp2;
+  Range tmp1 = *range;
+  Range tmp2;
   pthread_t thread1 = 1, thread2 = 2;
 
   /* if ( (range->right - range->left) <= LENGTH ) { */
@@ -66,7 +66,7 @@ void _qsort(_range *range)
   v = partition(range);
   tmp1.depth += 1;
   tmp2 = tmp1;
-  if ( tmp1.depth > MAX_DEPTH /* || (range->right - range->left) <= LENGTH */ ) {
+  if ( tmp1.depth > MAX_DEPTH || (range->right - range->left) <= LENGTH ) {
     tmp1.right = v-1;
     _qsort(&tmp1);
     tmp2.left = v + 1;
@@ -75,13 +75,14 @@ void _qsort(_range *range)
     tmp1.right = v-1;
     pthread_create(&thread1, NULL, (void (*))_qsort, &tmp1);
     tmp2.left = v + 1;
-    pthread_create(&thread2, NULL, (void (*))_qsort, &tmp2);
+    _qsort(&tmp2);
+    /* pthread_create(&thread2, NULL, (void (*))_qsort, &tmp2); */
     pthread_join(thread1, NULL);
-    pthread_join(thread2, NULL);
+    /* pthread_join(thread2, NULL); */
   }
 }
 
-int partition(_range *range)
+int partition(Range *range)
 {
   int i, j;
   int t, pivot;
@@ -127,7 +128,7 @@ void init_arr()
 }
 
 
-void insertion_sort(_range range)
+void insertion_sort(Range range)
 {
   int i, j;
   range.left += 1;

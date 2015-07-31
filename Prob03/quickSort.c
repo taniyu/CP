@@ -11,21 +11,21 @@ typedef struct {
   int left;
   int right;
   int depth;
-} _range;
+} Range;
 
-void quick_sort(_range range);
-void _qsort(_range range);
-int partition(_range range);
+void quick_sort(Range range);
+void _qsort(Range range);
+int partition(Range range);
 void swap(int i, int j);
 void print_arr();
 void init_arr();
-void insertion_sort(_range range);
+void insertion_sort(Range range);
 
 int x[SIZE];
 
 int main(void)
 {
-  _range range;
+  Range range;
   struct timeval start, end;
   range.left = 0;
   range.right = SIZE;
@@ -41,16 +41,16 @@ int main(void)
   return 0;
 }
 
-void quick_sort(_range range)
+void quick_sort(Range range)
 {
   range.right -= 1;
   _qsort(range);
 }
 
-void _qsort(_range range)
+void _qsort(Range range)
 {
   int v;
-  _range tmp = range;
+  Range tmp = range;
 
   /* if ( (range.right - range.left) <= LENGTH ) { */
   /*   insertion_sort(tmp); */
@@ -65,7 +65,7 @@ void _qsort(_range range)
   _qsort(tmp);
 }
 
-int partition(_range range)
+int partition(Range range)
 {
   int i, j;
   int t, pivot;
@@ -110,7 +110,7 @@ void init_arr()
   }
 }
 
-void insertion_sort(_range range)
+void insertion_sort(Range range)
 {
   int i, j;
   range.left += 1;
