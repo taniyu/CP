@@ -11,12 +11,29 @@
 
 #define	SERV_TCP_PORT 20000
 #define BUFF 256
+#define tvaltof(ts, tus) ((ts) + (double)(tus)/1000000)
 
 void err_msg(char *msg)
 {
   perror(msg);
   exit(1);
 }
+
+// 文字列を数値があるところまで進める
+char *search_num(char *str)
+{
+  while( *str ) {    
+    if ( '0' <= *str && *str <= '9' ) { return str; }
+    str++;
+  }
+  return NULL;
+}
+
+double time_to_double(struct timeval t)
+{
+  return tvaltof(t.tv_sec, t.tv_usec);
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -85,20 +102,17 @@ int main(int argc, char *argv[])
     }
     if (wflag == 0) {
       if (recv(sockfd, r_buff, BUFF, 0) != -1) {
+        gettimeofday(&t2, NULL);
         if (r_buff[0] == '\001') {
           endflag = 1;
           break;	/* ^A */
         }
-        gettimeofday(&t2, NULL);
-        tmp1 = r_buff;
-        tmp1 = strchr(tmp1, ':'); tmp1++;
-        tmp1 = strchr(tmp1, ':'); tmp1++;
-        sscanf(tmp1, "%lf", &r_sec);
+        r_sec = atof(search_num(r_buff));
         wflag = 1;
       }
     }
     if (wflag == 1) {
-      diff = (t1.tv_sec + t1.tv_usec / 1000000.0) + (t2.tv_sec + t2.tv_usec/ 1000000.0) - r_sec;
+      diff = time_to_double(t1) + time_to_double(t2) - r_sec;
       strtok(r_buff, "\n\0");
       strtok(s_buff, "\n\0");
       sprintf(r_buff2, "%s\n%s\n%.0f.%.0f\n%f\n",s_buff, r_buff, (double)t2.tv_sec, (double)t2.tv_usec, diff);

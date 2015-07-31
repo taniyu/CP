@@ -19,6 +19,21 @@ void err_msg(char *msg)
   exit(1);
 }
 
+// :以降の文字をSに置換する
+void replace_str(char *str)
+{
+  int flag = 0;
+  while ( *str != '\0' ) {
+    if ( flag == 1 ) { *str = '\0'; }
+    if ( *str == ':' ) {
+      flag = 1;
+      str++;
+      *str = 'S';
+    }
+    str++;
+  }
+}
+
 int main(int argc, char *argv[])
 {
   int port_no;
@@ -27,11 +42,9 @@ int main(int argc, char *argv[])
   struct sockaddr_in serv_addr, cli_addr;
   int cli_len = sizeof(cli_addr);
   int rflag, wflag, endflag, iobytes;
-  char sch, rch;
 
-  char s_buff[BUFF], r_buff[BUFF], tmp1[BUFF];
+  char s_buff[BUFF], r_buff[BUFF];
   struct timeval ts;
-  int k;
 
   port_no = (argc > 1) ? atoi(argv[1]) : SERV_TCP_PORT;
   printf("待ち受けのポート番号は %d です．Ctrl-A を押すと終了します．\n", port_no);
@@ -75,12 +88,12 @@ int main(int argc, char *argv[])
     if (wflag == 0) {
       if ((iobytes = recv(sockfd, r_buff, BUFF, 0)) != -1) {
         gettimeofday(&ts, NULL);
-        sscanf(r_buff, "%[^':']", tmp1);
-        sprintf(s_buff, "%s:a:%.0f.%.0f", tmp1, (double)ts.tv_sec, (double)ts.tv_usec);
         if (r_buff[0] == '\001') {
           endflag = 1;
           break;	/* ^A */
         }
+        replace_str(r_buff);
+        sprintf(s_buff, "%s:%.0f.%.0f", r_buff, (double)ts.tv_sec, (double)ts.tv_usec);
         wflag = 1;
         rflag = 0;
       } else if (iobytes == -1) {
