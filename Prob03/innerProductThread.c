@@ -19,7 +19,7 @@ void print_arr(volatile double arr[SIZE][SIZE]) {
   int k1, k2;
   for ( k1 = 0; k1 < SIZE; k1++ ) {
     for ( k2 = 0; k2 < SIZE; k2++ ) {
-      printf("%4f", arr[k1][k2]);
+      printf("%4f ", arr[k1][k2]);
     }
     puts("");
   }
@@ -29,7 +29,7 @@ void inner_product(int *tnum) {
   int k1,k2;
   int errcode;
 
-  printf("Thread %d\n", *tnum);
+  /* printf("Thread %d\n", *tnum); */
   for (k1 = 0; k1 < SIZE; k1++) {
     z[*tnum][k1] = 0;
     for (k2 = 0; k2 < SIZE; k2++) {
@@ -71,7 +71,7 @@ int main()
 
   for (thnum = 0; thnum < THNUM; thnum++) {
     pthread_join(threads[thnum], (void **)&status);
-    printf("Finish thread %d with return value %d\n", thnum, *status);
+    /* printf("Finish thread %d with return value %d\n", thnum, *status); */
   }
   gettimeofday(&end, NULL);
   printf("%f\n", (double)tvaltof(end.tv_sec, end.tv_usec) - tvaltof(start.tv_sec, start.tv_usec));

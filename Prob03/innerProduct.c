@@ -28,7 +28,7 @@ void inner_product(int *tnum) {
   int k1,k2;
   int errcode;
 
-  printf("行 %d\n", *tnum);
+  /* printf("行 %d\n", *tnum); */
   for (k1 = 0; k1 < SIZE; k1++) {
     z[*tnum][k1] = 0;
     for (k2 = 0; k2 < SIZE; k2++) {
