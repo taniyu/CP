@@ -1,4 +1,3 @@
-#include <pthread.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/time.h>
@@ -64,6 +63,6 @@ int main()
   gettimeofday(&end, NULL);
   printf("%f\n", (double)tvaltof(end.tv_sec, end.tv_usec) - tvaltof(start.tv_sec, start.tv_usec));
 
+  return 0;
   /* print_arr(z); */
-  pthread_exit(NULL);
 }
